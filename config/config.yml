@@ -1,0 +1,15 @@
+app:
+  name: "测试案例"
+  port: :8888
+dataBase:
+  host: 47.121.218.246
+  port: 3306
+  username: root
+  password: 123scc
+  dbname: goJob
+  idleConnection: 10
+  maxConnection: 100
+  LiveTime: 60
+jwt:
+  secret: aabbccddeef
+  exptime: 168 
