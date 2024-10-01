@@ -20,7 +20,8 @@ func SetRouter() *gin.Engine {
 		{
 			auth.POST("/login", controller.Login)
 			auth.POST("/register", controller.Register)
-			auth.POST("/forget")
+			auth.POST("/getCode", controller.GetCode)
+			auth.POST("/forget", controller.ForgetPassword)
 		}
 	}
 

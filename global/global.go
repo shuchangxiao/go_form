@@ -2,12 +2,20 @@ package global
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis"
+	"github.com/streadway/amqp"
 	"gorm.io/gorm"
 	"net/http"
 	"reflect"
+	"regexp"
 )
 
-var Db *gorm.DB
+var (
+	Db                  *gorm.DB
+	Redis               *redis.Client
+	Channel             *amqp.Channel
+	SendEmailRoutineKey string
+)
 
 func InitPredicate(ctx *gin.Context, input interface{}) bool {
 	err := ctx.ShouldBindJSON(input)
@@ -87,4 +95,16 @@ func StructEmpty(s interface{}) bool {
 
 	// 所有字段都为空
 	return true
+}
+func IsValidEmail(email string) bool {
+	// 定义电子邮件地址的正则表达式模式
+	var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$`)
+	return emailRegex.MatchString(email)
+}
+func FailOnErr(ctx *gin.Context) {
+	ctx.JSON(http.StatusInternalServerError, gin.H{
+		"data":    nil,
+		"message": "内部错误，请联系管理员",
+	})
+	ctx.Abort()
 }

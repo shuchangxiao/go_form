@@ -24,6 +24,24 @@ type Config struct {
 		Secret  string
 		Exptime uint
 	}
+	Redis struct {
+		Host     string
+		Port     string
+		Password string
+		Db       int
+	}
+	Rabbitmq struct {
+		Username string
+		Host     string
+		Port     string
+		Password string
+	}
+	Email struct {
+		Host     string
+		Port     int
+		Username string
+		Password string
+	}
 }
 
 var Cf *Config
@@ -42,4 +60,6 @@ func Init() {
 		log.Fatalf("转换成struct出现错误：%v", err)
 	}
 	InitDataBase()
+	InitRedisDB()
+	InitRabbitMQ()
 }
