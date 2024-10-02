@@ -1,3 +1,4 @@
 package constant
 
-const VerifyCode string = "email:code:"
+const VERIFYCODE string = "email:code:"
+const WEATHERCACHE string = "weather:"

@@ -42,6 +42,9 @@ type Config struct {
 		Username string
 		Password string
 	}
+	Weather struct {
+		Key string
+	}
 }
 
 var Cf *Config

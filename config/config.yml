@@ -28,3 +28,5 @@ email:
   port: 25
   username: scc_20220@163.com
   password: HQJTQUTRJRTKHIAA
+weather:
+  key: dfa1f36ddbc143fc8a1aed173cff2f49

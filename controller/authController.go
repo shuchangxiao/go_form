@@ -42,7 +42,7 @@ func GetCode(ctx *gin.Context) {
 		ctx.Abort()
 		return
 	}
-	exists, err1 := global.Redis.Exists(constant.VerifyCode + input.Email).Result()
+	exists, err1 := global.Redis.Exists(constant.VERIFYCODE + input.Email).Result()
 	if err1 != nil {
 		// 处理错误
 		global.FailOnErr(ctx)
@@ -58,7 +58,7 @@ func GetCode(ctx *gin.Context) {
 	randomInt := rand.Intn(899999)
 	randomInt += 100000
 	//redis存储随机参数验证码
-	err := global.Redis.Set(constant.VerifyCode+input.Email, randomInt, 5*time.Minute).Err()
+	err := global.Redis.Set(constant.VERIFYCODE+input.Email, randomInt, 5*time.Minute).Err()
 	if err != nil {
 		global.FailOnErr(ctx)
 		log.Printf("redis中存储键值：%v", err)
@@ -84,6 +84,11 @@ func GetCode(ctx *gin.Context) {
 			ContentType: "text/plain",
 			Body:        sendEmailBytes,
 		})
+	if err != nil {
+		global.FailOnErr(ctx)
+		log.Printf("rabbitmq发送失败：%v", err)
+		return
+	}
 	ctx.JSON(http.StatusOK, gin.H{
 		"data":    nil,
 		"message": "邮件已经发送",
@@ -105,7 +110,7 @@ func ForgetPassword(ctx *gin.Context) {
 		})
 		return
 	}
-	code, err := global.Redis.Get(constant.VerifyCode + input.Email).Result()
+	code, err := global.Redis.Get(constant.VERIFYCODE + input.Email).Result()
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"data":    nil,
@@ -161,7 +166,7 @@ func ForgetPassword(ctx *gin.Context) {
 		"data":    nil,
 		"message": "跟新密码成功",
 	})
-	global.Redis.Del(constant.VerifyCode + input.Email)
+	global.Redis.Del(constant.VERIFYCODE + input.Email)
 }
 func Register(ctx *gin.Context) {
 	var input struct {
@@ -180,7 +185,7 @@ func Register(ctx *gin.Context) {
 		})
 		return
 	}
-	code, err := global.Redis.Get(constant.VerifyCode + input.Email).Result()
+	code, err := global.Redis.Get(constant.VERIFYCODE + input.Email).Result()
 	if err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"data":    nil,
@@ -250,7 +255,7 @@ func Register(ctx *gin.Context) {
 		"data":    nil,
 		"message": "创建新用户成功",
 	})
-	global.Redis.Del(constant.VerifyCode + input.Email)
+	global.Redis.Del(constant.VERIFYCODE + input.Email)
 }
 func Login(ctx *gin.Context) {
 	var input struct {

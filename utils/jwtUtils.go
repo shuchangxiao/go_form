@@ -44,8 +44,8 @@ func ValidJWT(tokenString string) (int, bool) {
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if ok && token.Valid {
 		// 如果令牌有效，提取并返回用户ID。
-		id := claims["id"].(int)
-		return id, true
+		id := claims["id"].(float64)
+		return int(id), true
 	}
 	// 如果令牌无效或验证失败，返回-1和false。
 	return -1, false
