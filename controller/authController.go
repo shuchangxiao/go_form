@@ -6,7 +6,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/streadway/amqp"
 	"golang.org/x/exp/rand"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -17,54 +16,37 @@ import (
 	"veripTest/utils"
 )
 
-// todo 未判断是否已经发送过邮件
 func GetCode(ctx *gin.Context) {
 	var input struct {
-		Email  string `json:"email"`
-		Status int    `json:"status"`
+		Email  string `json:"email" validate:"required,email"`
+		Status int    `json:"status"  validate:"required,gt=1,lt=5"`
 	}
 	if !global.InitPredicate(ctx, &input) {
 		return
 	}
-	if !global.IsValidEmail(input.Email) {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"data":    nil,
-			"message": "邮箱格式错误",
-		})
-		ctx.Abort()
-		return
-	}
 	if input.Status != 1 && input.Status != 2 && input.Status != 3 {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"data":    nil,
-			"message": "未知状态",
-		})
-		ctx.Abort()
+		global.BusinessErr(ctx, "未知状态")
 		return
 	}
-	exists, err1 := global.Redis.Exists(constant.VERIFYCODE + input.Email).Result()
+	exists, err1 := global.Redis.Exists(constant.VerifyCode + input.Email).Result()
 	if err1 != nil {
 		// 处理错误
-		global.FailOnErr(ctx)
+		global.FailOnErr(ctx, constant.RedisGetKeyErr, err1)
+		return
 	}
 	if exists > 0 {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"data":    nil,
-			"message": "验证码已经发送，请勿重复点击",
-		})
+		global.BusinessErr(ctx, "验证码已经发送，请勿重复点击")
 		return
 	}
 	rand.Seed(uint64(time.Now().UnixNano()))
 	randomInt := rand.Intn(899999)
 	randomInt += 100000
 	//redis存储随机参数验证码
-	err := global.Redis.Set(constant.VERIFYCODE+input.Email, randomInt, 5*time.Minute).Err()
+	err := global.Redis.Set(constant.VerifyCode+input.Email, randomInt, 5*time.Minute).Err()
 	if err != nil {
-		global.FailOnErr(ctx)
-		log.Printf("redis中存储键值：%v", err)
+		global.FailOnErr(ctx, constant.RedisSetKeyErr, err)
 		return
 	}
-	//todo:: rabbitmq发送邮件
 	sendEmail := model.SendEmail{
 		Email:  input.Email,
 		Status: input.Status,
@@ -72,8 +54,8 @@ func GetCode(ctx *gin.Context) {
 	}
 	sendEmailBytes, err := json.Marshal(sendEmail)
 	if err != nil {
-		global.FailOnErr(ctx)
-		log.Printf("输入格式化错误：%v", err)
+		global.FailOnErr(ctx, constant.JsonMarshalErr, err)
+		return
 	}
 	err = global.Channel.Publish(
 		"",                         // exchange
@@ -85,8 +67,7 @@ func GetCode(ctx *gin.Context) {
 			Body:        sendEmailBytes,
 		})
 	if err != nil {
-		global.FailOnErr(ctx)
-		log.Printf("rabbitmq发送失败：%v", err)
+		global.FailOnErr(ctx, constant.RabbitmqSendErr, err)
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{
@@ -96,143 +77,90 @@ func GetCode(ctx *gin.Context) {
 }
 func ForgetPassword(ctx *gin.Context) {
 	var input struct {
-		Password string `json:"password"`
-		Email    string `json:"email"`
-		Code     int    `json:"code"`
+		Password string `json:"password"  validate:"required,min=6,max=30"`
+		Email    string `json:"email" validate:"required,email"`
+		Code     int    `json:"code" validate:"required,gt=100000,lt=999999"`
 	}
 	if !global.InitPredicate(ctx, &input) {
 		return
 	}
-	if !global.IsValidEmail(input.Email) {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"data":    nil,
-			"message": "邮箱格式错误",
-		})
-		return
-	}
-	code, err := global.Redis.Get(constant.VERIFYCODE + input.Email).Result()
+	code, err := global.Redis.Get(constant.VerifyCode + input.Email).Result()
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"data":    nil,
-			"message": "请先获取验证码",
-		})
-		ctx.Abort()
+		global.BusinessErr(ctx, "请先获取验证码")
 		return
 
 	}
 	icode, err := strconv.Atoi(code)
 	fmt.Println(icode)
 	if err != nil {
-		global.FailOnErr(ctx)
-		log.Printf("从redis中获取失败：%v", err)
+		global.FailOnErr(ctx, constant.RedisGetKeyErr, err)
 		return
 	}
-	if !(icode == input.Code) {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"data":    nil,
-			"message": "验证码错误",
-		})
-		ctx.Abort()
+	if icode != input.Code {
+		global.BusinessErr(ctx, "验证码错误")
 		return
 	}
 	var findUser model.User
 	err = global.Db.Where("email=?", input.Email).First(&findUser).Error
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"data":    nil,
-			"message": "邮箱还未被注册",
-		})
-		ctx.Abort()
+		global.BusinessErr(ctx, "邮箱未被注册")
 		return
 	}
 	passwd, err := utils.EncodePasswd(input.Password)
 	if err != nil {
-		global.FailOnErr(ctx)
-		log.Printf("使用hash算法加密错误：%v", err)
+		global.FailOnErr(ctx, constant.HashEncodeErr, err)
 		return
 	}
 	findUser.Password = passwd
 	err = global.Db.Updates(&findUser).Error
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"data":    nil,
-			"message": "内部错误，请联系管理员",
-		})
-		ctx.Abort()
-		log.Printf("更新用户信息失败：%v", err)
+		global.FailOnErr(ctx, constant.MysqlUpdateErr, err)
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{
 		"data":    nil,
 		"message": "跟新密码成功",
 	})
-	global.Redis.Del(constant.VERIFYCODE + input.Email)
+	global.Redis.Del(constant.VerifyCode + input.Email)
 }
 func Register(ctx *gin.Context) {
 	var input struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
-		Email    string `json:"email"`
-		Code     int    `json:"code"`
+		Username string `json:"username"  validate:"required,min=1,max=15"`
+		Password string `json:"password"  validate:"required,min=6,max=30"`
+		Email    string `json:"email" validate:"required,email"`
+		Code     int    `json:"code" validate:"required,gt=100000,lt=999999"`
 	}
 	if !global.InitPredicate(ctx, &input) {
 		return
 	}
-	if !global.IsValidEmail(input.Email) {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"data":    nil,
-			"message": "邮箱格式错误",
-		})
-		return
-	}
-	code, err := global.Redis.Get(constant.VERIFYCODE + input.Email).Result()
+	code, err := global.Redis.Get(constant.VerifyCode + input.Email).Result()
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"data":    nil,
-			"message": "请先获取验证码",
-		})
-		ctx.Abort()
+		global.BusinessErr(ctx, "请先获取验证码")
 		return
-
 	}
 	icode, err := strconv.Atoi(code)
-	fmt.Println(icode)
 	if err != nil {
-		global.FailOnErr(ctx)
-		log.Printf("从redis中获取失败：%v", err)
+		global.FailOnErr(ctx, constant.RedisGetKeyErr, err)
 		return
 	}
 	if !(icode == input.Code) {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"data":    nil,
-			"message": "验证码错误",
-		})
-		ctx.Abort()
+		global.BusinessErr(ctx, "验证码错误")
 		return
 	}
 	var findUser model.User
 	err = global.Db.Where("username=?", input.Username).First(&findUser).Error
 	if err == nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"data":    nil,
-			"message": "用户名已经存在",
-		})
-		ctx.Abort()
+		global.BusinessErr(ctx, "用户名已经存在")
 		return
 	}
 	err = global.Db.Where("email=?", input.Email).First(&findUser).Error
 	if err == nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"data":    nil,
-			"message": "邮箱已经被注册",
-		})
-		ctx.Abort()
+		global.BusinessErr(ctx, "邮箱已经被注册")
 		return
 	}
 	passwd, err := utils.EncodePasswd(input.Password)
 	if err != nil {
-		global.FailOnErr(ctx)
-		log.Printf("使用hash算法加密错误：%v", err)
+		global.FailOnErr(ctx, constant.HashEncodeErr, err)
 		return
 	}
 	user := model.User{
@@ -243,24 +171,22 @@ func Register(ctx *gin.Context) {
 	}
 	err = global.Db.Create(&user).Error
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"data":    nil,
-			"message": "内部错误，请联系管理员",
-		})
-		ctx.Abort()
-		log.Printf("创建新用户失败：%v", err)
+		global.FailOnErr(ctx, constant.MysqlUCreateErr, err)
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{
 		"data":    nil,
 		"message": "创建新用户成功",
 	})
-	global.Redis.Del(constant.VERIFYCODE + input.Email)
+	global.Redis.Del(constant.VerifyCode + input.Email)
 }
+
+// todo ::未增加邮箱登录
+
 func Login(ctx *gin.Context) {
 	var input struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
+		Username string `json:"username"  validate:"required,min=1,max=15"`
+		Password string `json:"password"  validate:"required,min=6,max=30"`
 	}
 	if !global.InitPredicate(ctx, &input) {
 		return
@@ -268,28 +194,16 @@ func Login(ctx *gin.Context) {
 	var user model.User
 	err := global.Db.Where("username=?", input.Username).First(&user).Error
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"data":    nil,
-			"message": "用户名不存在",
-		})
-		ctx.Abort()
+		global.BusinessErr(ctx, "用户名不存在")
 		return
 	}
 	if !utils.EqualPasswd(user.Password, input.Password) {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"data":    nil,
-			"message": "用户名或密码错误",
-		})
-		ctx.Abort()
+		global.BusinessErr(ctx, "密码错误")
 		return
 	}
 	jwt, err := utils.CreateJWT(user.ID)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{
-			"data":    nil,
-			"message": "内部错误，请联系管理员",
-		})
-		ctx.Abort()
+		global.FailOnErr(ctx, constant.JWTCreateErr, err)
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{

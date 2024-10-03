@@ -1,11 +1,16 @@
 package utils
 
 import (
+	"errors"
 	"fmt"
+	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"log"
 	"strings"
 	"time"
 	"veripTest/config"
+	"veripTest/constant"
+	"veripTest/global"
 )
 
 func CreateJWT(id uint) (string, error) {
@@ -38,6 +43,7 @@ func ValidJWT(tokenString string) (int, bool) {
 	})
 	// 处理解析过程中可能发生的错误。
 	if err != nil {
+		log.Printf("解析jwt时出现错误%v", err)
 		return -1, false
 	}
 	// 检查令牌的声明部分，并验证令牌的有效性。
@@ -49,4 +55,17 @@ func ValidJWT(tokenString string) (int, bool) {
 	}
 	// 如果令牌无效或验证失败，返回-1和false。
 	return -1, false
+}
+func GetUserId(ctx *gin.Context) int {
+	value, exists := ctx.Get(constant.UseId)
+	if !exists {
+		global.FailOnErr(ctx, constant.JWTGetUserIDErr, errors.New(constant.JWTGetUserIDErr))
+		return -1
+	}
+	uid, bo := value.(int)
+	if !bo {
+		global.FailOnErr(ctx, constant.UserIdConvertIntErr, errors.New(constant.UserIdConvertIntErr))
+		return -1
+	}
+	return uid
 }

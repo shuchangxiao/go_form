@@ -2,7 +2,8 @@ package middlewares
 
 import (
 	"github.com/gin-gonic/gin"
-	"net/http"
+	"veripTest/constant"
+	"veripTest/global"
 	"veripTest/utils"
 )
 
@@ -11,13 +12,9 @@ func AuthConfirmMiddleware() gin.HandlerFunc {
 		token := ctx.GetHeader("Authorization")
 		jwt, b := utils.ValidJWT(token)
 		if b && jwt != -1 {
-			ctx.Set("id", jwt)
+			ctx.Set(constant.UseId, jwt)
 		} else {
-			ctx.JSON(http.StatusBadRequest, gin.H{
-				"data":    nil,
-				"message": "验证jwt失败",
-			})
-			ctx.Abort()
+			global.BusinessErr(ctx, "验证jwt失败")
 			return
 		}
 		ctx.Next()

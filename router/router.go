@@ -20,9 +20,11 @@ func SetRouter() *gin.Engine {
 	api := engine.Group("/api")
 	api.Use(middlewares.AuthConfirmMiddleware())
 	{
+		api.POST("/weather", controller.GetHeFengWeather)
 		form := api.Group("/form")
 		{
-			form.POST("/weather", controller.GetHeFengWeather)
+			form.POST("/create-topic", controller.CreateTopic)
+			form.POST("/update-topic", controller.UpdateTopic)
 			form.GET("/test", func(context *gin.Context) {
 				context.JSON(http.StatusOK, gin.H{
 					"code":    http.StatusOK,

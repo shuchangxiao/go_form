@@ -10,3 +10,7 @@ type User struct {
 	Role     string
 	Avatar   string
 }
+
+func (User) TableName() string {
+	return "db_user"
+}
