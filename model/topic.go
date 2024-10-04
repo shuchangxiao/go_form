@@ -6,7 +6,7 @@ type Topic struct {
 	gorm.Model
 	Title   string
 	Content string
-	Uid     int
+	Uid     uint
 	Type_   int `gorm:"column:type"`
 	Top     int
 }

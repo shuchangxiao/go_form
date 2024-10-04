@@ -25,6 +25,7 @@ func SetRouter() *gin.Engine {
 		{
 			form.POST("/create-topic", controller.CreateTopic)
 			form.POST("/update-topic", controller.UpdateTopic)
+			form.POST("/list-topic", controller.ListTopic)
 			form.GET("/test", func(context *gin.Context) {
 				context.JSON(http.StatusOK, gin.H{
 					"code":    http.StatusOK,
