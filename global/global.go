@@ -3,6 +3,7 @@ package global
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis"
+	"github.com/minio/minio-go/v7"
 	"github.com/streadway/amqp"
 	"gorm.io/gorm"
 	"log"
@@ -14,6 +15,7 @@ var (
 	Redis               *redis.Client
 	Channel             *amqp.Channel
 	SendEmailRoutineKey string
+	Minio               *minio.Client
 )
 
 func InitPredicate(ctx *gin.Context, input interface{}) bool {

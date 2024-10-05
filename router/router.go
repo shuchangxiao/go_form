@@ -33,7 +33,12 @@ func SetRouter() *gin.Engine {
 				})
 			})
 		}
+		image := api.Group("/image")
+		{
+			image.POST("/cache", controller.UploadImage)
+			image.POST("/avatar", controller.UploadAvatar)
+		}
 	}
-
+	engine.GET("/images/*imagePath", controller.GetImage)
 	return engine
 }

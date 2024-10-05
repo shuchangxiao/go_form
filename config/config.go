@@ -45,6 +45,14 @@ type Config struct {
 	Weather struct {
 		Key string
 	}
+	Minio struct {
+		Ip              string
+		Port            string
+		AccessKeyID     string
+		SecretAccessKey string
+		UseSSL          bool
+		BucketName      string
+	}
 }
 
 var Cf *Config
@@ -65,4 +73,5 @@ func Init() {
 	InitDataBase()
 	InitRedisDB()
 	InitRabbitMQ()
+	InitMinio()
 }
