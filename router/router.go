@@ -2,7 +2,6 @@ package router
 
 import (
 	"github.com/gin-gonic/gin"
-	"net/http"
 	"veripTest/controller"
 	"veripTest/middlewares"
 )
@@ -25,13 +24,12 @@ func SetRouter() *gin.Engine {
 		{
 			form.POST("/create-topic", controller.CreateTopic)
 			form.POST("/update-topic", controller.UpdateTopic)
+			form.POST("/delete-topic", controller.DeleteTopic)
+
+			form.POST("/create-comment", controller.CreateComment)
+			form.POST("/delete-comment", controller.DeleteComment)
 			form.POST("/list-topic", controller.ListTopic)
-			form.GET("/test", func(context *gin.Context) {
-				context.JSON(http.StatusOK, gin.H{
-					"code":    http.StatusOK,
-					"message": "测试案例成功",
-				})
-			})
+			form.POST("/list-comments", controller.ListComments)
 		}
 		image := api.Group("/image")
 		{
