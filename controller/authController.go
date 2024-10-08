@@ -18,8 +18,8 @@ import (
 
 func GetCode(ctx *gin.Context) {
 	var input struct {
-		Email  string `json:"email" validate:"required,email"`
-		Status int    `json:"status"  validate:"required,gt=1,lt=5"`
+		Email  string `json:"email" binding:"required,email"`
+		Status int    `json:"status"  binding:"required,gt=1,lt=5"`
 	}
 	if !global.InitPredicate(ctx, &input) {
 		return
@@ -77,9 +77,9 @@ func GetCode(ctx *gin.Context) {
 }
 func ForgetPassword(ctx *gin.Context) {
 	var input struct {
-		Password string `json:"password"  validate:"required,min=6,max=30"`
-		Email    string `json:"email" validate:"required,email"`
-		Code     int    `json:"code" validate:"required,gt=100000,lt=999999"`
+		Password string `json:"password"  binding:"required,min=6,max=30"`
+		Email    string `json:"email" binding:"required,email"`
+		Code     int    `json:"code" binding:"required,gt=100000,lt=999999"`
 	}
 	if !global.InitPredicate(ctx, &input) {
 		return
@@ -125,10 +125,10 @@ func ForgetPassword(ctx *gin.Context) {
 }
 func Register(ctx *gin.Context) {
 	var input struct {
-		Username string `json:"username"  validate:"required,min=1,max=15"`
-		Password string `json:"password"  validate:"required,min=6,max=30"`
-		Email    string `json:"email" validate:"required,email"`
-		Code     int    `json:"code" validate:"required,gt=100000,lt=999999"`
+		Username string `json:"username"  binding:"required,min=1,max=15"`
+		Password string `json:"password"  binding:"required,min=6,max=30"`
+		Email    string `json:"email" binding:"required,email"`
+		Code     int    `json:"code" binding:"required,gt=100000,lt=999999"`
 	}
 	if !global.InitPredicate(ctx, &input) {
 		return
@@ -185,8 +185,8 @@ func Register(ctx *gin.Context) {
 
 func Login(ctx *gin.Context) {
 	var input struct {
-		Username string `json:"username"  validate:"required,min=1,max=15"`
-		Password string `json:"password"  validate:"required,min=6,max=30"`
+		Username string `json:"username"  binding:"required,min=1,max=15"`
+		Password string `json:"password"  binding:"required,min=6,max=30"`
 	}
 	if !global.InitPredicate(ctx, &input) {
 		return

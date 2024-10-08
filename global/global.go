@@ -1,6 +1,7 @@
 package global
 
 import (
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis"
 	"github.com/minio/minio-go/v7"
@@ -8,6 +9,7 @@ import (
 	"gorm.io/gorm"
 	"log"
 	"net/http"
+	"sync"
 )
 
 var (
@@ -16,14 +18,16 @@ var (
 	Channel             *amqp.Channel
 	SendEmailRoutineKey string
 	Minio               *minio.Client
+	Mutex               sync.Mutex
 )
 
 func InitPredicate(ctx *gin.Context, input interface{}) bool {
-	if err := ctx.ShouldBindJSON(&input); err != nil {
+	if err := ctx.ShouldBindJSON(input); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{
 			"data":    nil,
 			"message": "请输入正确的参数",
 		})
+		fmt.Printf("%v", err)
 		ctx.Abort()
 		return false
 	}

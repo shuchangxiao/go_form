@@ -3,6 +3,7 @@ package controller
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"reflect"
@@ -19,9 +20,9 @@ import (
 
 func CreateTopic(ctx *gin.Context) {
 	var input struct {
-		Code    int                    `json:"code" validate:"required,gt=1"`
-		Title   string                 `json:"title"  validate:"required,min=1,max=30"`
-		Content map[string]interface{} `json:"content" validate:"required"`
+		Code    int                    `json:"code" binding:"required,gt=1"`
+		Title   string                 `json:"title"  binding:"required,min=1,max=30"`
+		Content map[string]interface{} `json:"content" binding:"required"`
 	}
 	if !global.InitPredicate(ctx, &input) {
 		return
@@ -56,10 +57,10 @@ func CreateTopic(ctx *gin.Context) {
 
 func UpdateTopic(ctx *gin.Context) {
 	var input struct {
-		Id      int                    `json:"id" validate:"required,min=1"`
-		Code    int                    `json:"code" validate:"required,gt=1"`
-		Title   string                 `json:"title"  validate:"required,min=1,max=30"`
-		Content map[string]interface{} `json:"content" validate:"required"`
+		Id      int                    `json:"id" binding:"required,min=1"`
+		Code    int                    `json:"code" binding:"required,gt=1"`
+		Title   string                 `json:"title"  binding:"required,min=1,max=30"`
+		Content map[string]interface{} `json:"content" binding:"required"`
 	}
 	if !global.InitPredicate(ctx, &input) {
 		return
@@ -95,7 +96,7 @@ func UpdateTopic(ctx *gin.Context) {
 }
 func DeleteTopic(ctx *gin.Context) {
 	var input struct {
-		Id int `json:"id" validate:"required,min=1"`
+		Id int `json:"id" binding:"required,min=1"`
 	}
 	if !global.InitPredicate(ctx, &input) {
 		return
@@ -130,11 +131,10 @@ type TopicPreviewVO struct {
 	Collect  int64     `json:"collect"`
 }
 
-// todo 出现bug，没有code也行
 func ListTopic(ctx *gin.Context) {
 	var input struct {
-		Page int `json:"page" validate:"required,gt=1"`
-		Code int `json:"code" validate:"required,gt=0"`
+		Page int `json:"page" binding:"required,gte=1"`
+		Code int `json:"code" binding:"gte=0"`
 	}
 	if !global.InitPredicate(ctx, &input) {
 		return
@@ -224,9 +224,9 @@ func ListTopic(ctx *gin.Context) {
 
 func CreateComment(ctx *gin.Context) {
 	var input struct {
-		Tid     uint                   `json:"tid" validate:"required,gt=1"`
-		Content map[string]interface{} `json:"content"  validate:"required"`
-		Quote   uint                   `json:"quote"  validate:"required,gt=0"`
+		Tid     uint                   `json:"tid" binding:"required,gt=1"`
+		Content map[string]interface{} `json:"content"  binding:"required"`
+		Quote   uint                   `json:"quote"  binding:"required,gt=0"`
 	}
 	if !global.InitPredicate(ctx, &input) {
 		return
@@ -268,7 +268,7 @@ func CreateComment(ctx *gin.Context) {
 }
 func DeleteComment(ctx *gin.Context) {
 	var input struct {
-		Id int `json:"id" validate:"required,min=1"`
+		Id int `json:"id" binding:"required,min=1"`
 	}
 	if !global.InitPredicate(ctx, &input) {
 		return
@@ -298,11 +298,10 @@ type CommentVO struct {
 	Avatar   string `json:"avatar"`
 }
 
-// todo 出现pandic,&content出现错误
 func ListComments(ctx *gin.Context) {
 	var input struct {
-		Id   int `json:"id" validate:"required,gt=1"`
-		Page int `json:"page" validate:"required,gt=1"`
+		Id   int `json:"id" binding:"required,gte=1"`
+		Page int `json:"page" binding:"required,gte=1"`
 	}
 	if !global.InitPredicate(ctx, &input) {
 		return
@@ -310,7 +309,7 @@ func ListComments(ctx *gin.Context) {
 	offset := (input.Page - 1) * constant.CommentsSize
 	var comments []model.Comment
 	dbComment := global.Db.Model(model.Comment{})
-	if err := dbComment.Offset(offset).Limit(constant.CommentsSize).Order("created_at desc").Find(&comments).Error; err != nil {
+	if err := dbComment.Offset(offset).Limit(constant.CommentsSize).Where("tid", input.Id).Order("created_at desc").Find(&comments).Error; err != nil {
 		global.FailOnErr(ctx, constant.MysqlUFindErr, err)
 		return
 	}
@@ -324,7 +323,6 @@ func ListComments(ctx *gin.Context) {
 			defer wg.Done()
 			var commentVO CommentVO
 			var user model.User
-			var content string
 			innerWg.Add(1)
 			go func() {
 				defer innerWg.Done()
@@ -338,8 +336,13 @@ func ListComments(ctx *gin.Context) {
 				innerWg.Add(1)
 				go func() {
 					defer innerWg.Done()
-					if err := dbComment.Where("id", comment.Quote).Select("content").First(&content).Error; err.Error() == constant.MySqlNotFound {
-						content = "此评论已被删除"
+					content := new(string)
+					dbComment := global.Db.Model(model.Comment{})
+					err := dbComment.Where("id", comment.Quote).Select("content").First(content).Error
+					if err != nil && err.Error() == constant.MySqlNotFound {
+						commentVO.Quote = "此评论已被删除"
+					} else {
+						commentVO.Quote = *content
 					}
 				}()
 			}
@@ -347,7 +350,6 @@ func ListComments(ctx *gin.Context) {
 			commentVO.ID = comment.ID
 			commentVO.Time = comment.CreatedAt
 			commentVO.Content = comment.Content
-			commentVO.Quote = content
 			commentVO.UID = user.ID
 			commentVO.Username = user.Username
 			commentVO.Avatar = user.Avatar
@@ -365,6 +367,33 @@ func ListComments(ctx *gin.Context) {
 		"message": nil,
 	})
 }
+
+func Interact(ctx *gin.Context) {
+	var input struct {
+		Tid    int    `json:"tid" binding:"required,min=1"`
+		Type   string `json:"type" binding:"required,typeCheck"`
+		Status bool   `json:"status"`
+	}
+	if !global.InitPredicate(ctx, &input) {
+		return
+	}
+	uid := utils.GetUserId(ctx)
+	if uid == 0 {
+		return
+	}
+	typeKey := fmt.Sprintf("%d:%d", uid, input.Tid)
+	global.Mutex.Lock()
+	if err := global.Redis.HSet(input.Type, typeKey, input.Status).Err(); err != nil {
+		global.FailOnErr(ctx, constant.RedisSetKeyErr, err)
+		return
+	}
+	global.Mutex.Unlock()
+	ctx.JSON(http.StatusOK, gin.H{
+		"data":    nil,
+		"message": "操作成功",
+	})
+}
+
 func shortContentAndSetImage(ctx *gin.Context, previewTopic *TopicPreviewVO, content string) bool {
 	var all map[string]interface{}
 	if err := json.Unmarshal([]byte(content), &all); err != nil {

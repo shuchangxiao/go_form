@@ -30,6 +30,8 @@ func SetRouter() *gin.Engine {
 			form.POST("/delete-comment", controller.DeleteComment)
 			form.POST("/list-topic", controller.ListTopic)
 			form.POST("/list-comments", controller.ListComments)
+
+			form.POST("/interact", controller.Interact)
 		}
 		image := api.Group("/image")
 		{

@@ -1,8 +1,11 @@
 package config
 
 import (
+	"github.com/gin-gonic/gin/binding"
+	"github.com/go-playground/validator/v10"
 	"github.com/spf13/viper"
 	"log"
+	"veripTest/timer"
 )
 
 type Config struct {
@@ -74,4 +77,18 @@ func Init() {
 	InitRedisDB()
 	InitRabbitMQ()
 	InitMinio()
+	timer.InitTimer()
+	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
+		err := v.RegisterValidation("typeCheck", typeCheck)
+		if err != nil {
+			log.Fatalf("%v", err)
+			return
+		}
+	}
+}
+func typeCheck(fl validator.FieldLevel) bool {
+	if fl.Field().String() == "collect" || fl.Field().String() == "like" {
+		return true
+	}
+	return false
 }
